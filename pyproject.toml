@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fastbb"
+version = "0.1.0"
+description = "Fast general (any-size, prebuilt-kernel) drop-in backbones for PyTorch inference: DINOv2/ViT, CNN, RAFT-style encoders"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE", "third_party/*"]
+authors = [{ name = "Florian Nick" }]
+requires-python = ">=3.10"
+dependencies = ["torch>=2.4"]
+
+[project.optional-dependencies]
+kernels = ["nvidia-cudnn-frontend"]
+test = ["timm"]
+
+[project.urls]
+Homepage = "https://github.com/fastforks/fastbb"
+
+[tool.setuptools]
+packages = ["fastbb", "fastbb.models"]
+
+[tool.setuptools.package-data]
+fastbb = ["prebuilt/*.fatbin", "*.cu", "csrc/*.cu"]
+
+# Lint only. The code is hand-formatted (aligned comments, hand-wrapped long lines): do not run `ruff format`.
+[tool.ruff]
+target-version = "py310"
+line-length = 130
+
+[tool.ruff.lint]
+select = ["E4", "E9", "F", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["fastbb"]

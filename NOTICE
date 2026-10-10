@@ -1,0 +1,9 @@
+fastbb
+Copyright 2026 Florian Nick. Licensed under the Apache License 2.0 (see LICENSE).
+
+Third-party material:
+- fastbb/models/dinov2.py and fastbb/vit.py follow the architecture of DINOv2 (facebookresearch/dinov2, Apache-2.0,
+  third_party/DINOv2_LICENSE). The official DINOv2 checkpoints are not included; download them from the DINOv2 repository.
+- fastbb/csrc/*.cu and the prebuilt fatbin use NVIDIA CUTLASS (BSD-3-Clause, third_party/CUTLASS_LICENSE.txt):
+  copyright notice and licence text reproduced for binary distribution.
+- fastbb/cudnn_conv.py uses the NVIDIA cuDNN frontend (MIT) at run time (pip: nvidia-cudnn-frontend); not bundled.
