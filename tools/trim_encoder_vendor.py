@@ -1,4 +1,4 @@
-"""Keep only stereo encoder operators in an already-synced fastbb_vendored directory."""
+"""Keep only the operators a fork uses in an already-synced fastbb_vendored directory (stereo encoders, or flash attention)."""
 import ast
 import os
 import re
@@ -51,7 +51,35 @@ def trim_normconv(text):
     return text.rstrip() + "\n"
 
 
+def guard_trace(text):
+    text, count = re.subn(r"^([ \t]+)from \.trace import mark_invisible\s*\n\s*mark_invisible\(name\)",
+                          r'\1raise RuntimeError("raw fastbb kernels cannot be traced; export the portable model")', text,
+                          flags=re.MULTILINE)
+    if count != 2 or "mark_invisible" in text:
+        raise ValueError(f"expected the trace guards of launch and launch_packed, replaced {count}")
+    return text
+
+
+def trim_flash(dest):
+    """attention.py users (SAM 3): head_dim-64 flash kernels only, rebuilt fatbin."""
+    p = dest / 'fastbb_kernels.cu'
+    text = p.read_text()
+    p.write_text(text[:text.index('// ------------------------------------------------------------------------------------------------ GEMM')].rstrip() + '\n')
+    p = dest / 'kernels.py'
+    text = p.read_text()
+    start, end = text.index('SIGNATURES = {'), text.index('_CTYPE =')
+    sig = ''.join(f'    "flash64_r{r}_{v}": "pppp" + "ii" + "lii" * 4 + "f",\n' for r in (1, 2) for v in ('hh', 'fh', 'ff'))
+    text = text[:start] + 'SIGNATURES = {\n' + sig + '}\nDYN_SMEM = {}\n' + text[end:]
+    p.write_text(guard_trace(text))
+    for f in (dest / 'prebuilt').glob('*') if (dest / 'prebuilt').exists() else ():
+        f.unlink()
+    env = dict(os.environ, PYTHONPATH=str(dest.parent))
+    subprocess.run([sys.executable, '-m', f'{dest.name}.kernels'], env=env, check=True)
+
+
 def trim(dest):
+    if (dest / 'attention.py').exists():
+        return trim_flash(dest)
     p = dest / 'csrc/norm_conv.cu'
     if p.exists():
         text = p.read_text()
@@ -86,12 +114,7 @@ def trim(dest):
 }
 DYN_SMEM = {"in_stats_h": 256 * 16 * 4, "in_stats_b": 256 * 16 * 4}
 ''' + text[end:]
-    text, count = re.subn(r"^([ \t]+)from \.trace import mark_invisible\s*\n\s*mark_invisible\(name\)",
-                          r'\1raise RuntimeError("raw encoder kernels cannot be traced; export the portable model")', text,
-                          flags=re.MULTILINE)
-    if count != 2 or "mark_invisible" in text:
-        raise ValueError(f"expected the trace guards of launch and launch_packed, replaced {count}")
-    p.write_text(text)
+    p.write_text(guard_trace(text).replace("raw fastbb kernels", "raw encoder kernels"))
     env = dict(os.environ, PYTHONPATH=str(dest.parent))
     subprocess.run([sys.executable, '-m', 'fastbb_vendored.kernels'], env=env, check=True)
 
