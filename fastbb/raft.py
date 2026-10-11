@@ -20,6 +20,7 @@ import torch.nn as nn
 
 from . import cudnn_conv
 from .cnn import _sized_forward
+from .instnorm import _instance_norm_kernel, _instance_norm_nhwc  # noqa: F401 (re-exported)
 
 _PAIRS = (("conv1", "norm1"), ("conv2", "norm2"), ("conv3", "norm3"), ("conv", "norm1"), ("conv", "norm"), ("conv", "bn"))
 
@@ -54,49 +55,6 @@ def fold_bn(module):
     # norm modules shared by reference elsewhere (e.g. ResidualBlock.norm3 also inside downsample) were replaced in the
     # attribute that owns them; a second reference left in a Sequential is caught by the Sequential pass above
     return n
-
-
-def _instance_norm_nhwc(self, x):
-    """InstanceNorm2d(affine=False/True, no running stats) with fp32 statistics, no layout change, no fp32 copy of x."""
-    hw = x.shape[-1] * x.shape[-2]
-    m = x.mean((2, 3), keepdim=True, dtype=torch.float32)
-    sq = torch.linalg.vector_norm(x, 2, dim=(2, 3), keepdim=True, dtype=torch.float32).square_().div_(hw)
-    rstd = torch.rsqrt((sq - m * m).clamp_(min=0) + self.eps)
-    if self.affine:
-        rstd = rstd * self.weight.float().view(1, -1, 1, 1)
-        shift = self.bias.float().view(1, -1, 1, 1) - m * rstd
-    else:
-        shift = -m * rstd
-    return torch.addcmul(shift.to(x.dtype), x, rstd.to(x.dtype))
-
-
-def _instance_norm_kernel(self, x, mode=0, res=None):
-    """fastbb kernels: fp32 stats (one read, atomics) + one fused normalize pass, NHWC, no copies. Falls back for other layouts.
-    mode 0: norm, 1: relu(norm), 2: relu(res + relu(norm)) (RAFT ResidualBlock tail)."""
-    N, C, H, W = x.shape
-    if not (x.is_cuda and x.dtype in (torch.float16, torch.bfloat16) and C % 8 == 0 and C <= 2048
-            and x.is_contiguous(memory_format=torch.channels_last) and x.data_ptr() % 16 == 0
-            and (res is None or (res.dtype == x.dtype and res.shape == x.shape and res.data_ptr() % 16 == 0
-                                 and res.is_contiguous(memory_format=torch.channels_last)))):
-        y = _instance_norm_nhwc(self, x)
-        if mode >= 1:
-            y = y.relu_()
-        return (y + res).relu_() if mode == 2 else y
-    from . import kernels as _k
-    kk = _k.Kernels.get()
-    sfx = "h" if x.dtype == torch.float16 else "b"
-    HW = H * W
-    st = torch.zeros((N, C, 2), device=x.device, dtype=torch.float32)
-    R = max(1, 256 // (C // 8))
-    nbx = max(1, min((HW + R - 1) // R, max(1, 288 // N)))
-    rpb = (HW + nbx - 1) // nbx
-    kk.launch(f"in_stats_{sfx}", ((nbx, N, 1), (256, 1, 1)), x, st, HW, C, rpb)
-    y = torch.empty_like(x)
-    w = self.weight.float().contiguous() if self.affine else None
-    b = self.bias.float().contiguous() if self.affine else None
-    kk.launch(f"in_apply_{sfx}", kk.linear(N * HW * C // 8), x, y, st, w if w is not None else 0, b if b is not None else 0,
-              res if res is not None else 0, N, HW, C, float(self.eps), mode)
-    return y
 
 
 def _resblock_in_forward(self, x):
