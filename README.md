@@ -15,7 +15,7 @@ ONNX / TensorRT) and **max** (custom CUDA kernels, cuDNN fp16-accumulate convolu
 | ViT-B/16 (timm), 1024 px | 32.3 ms | - | 21.6 ms (`install_vit_blocks`) | |
 
 Numbers: one GPU, median of warm calls; peak memory, first call and new-size cost were measured per row.
-Peak memory, first call and new-size cost per row are in that file. One GPU only; fp16-accumulating convs/GEMMs are a GeForce
+One GPU only; fp16-accumulating convs/GEMMs are a GeForce
 (consumer Blackwell/Ada) win and shrink on A100/H100 (use the `g0` / non-`hacc` specs there).
 
 ## Install
@@ -58,10 +58,9 @@ ViT spec `<attn>-g<n>`: attn `sdpa` (friendly) | `fh` (flash64, fp32 QK^T, fp16-
 GEMMs, `g1` fp16-acc GEMMs, `g2` all but fc2, `g3` chunked fp16-acc GEMM kernel (~fp32 error, between g0 and g1 in speed).
 Rules of thumb (measured): stereo/mono ViT-L at >= 518 px: `hh-g1` (validate on the model; SA prefers `fh-g1`); B*N < 400 tokens
 falls back to SDPA automatically; small inputs at batch 1 are CPU-bound -> `-graph` (ViT) / `trace` or `graph` (CNN).
-CNN: hacc only when B*H*W of the network input >= 8*224^2 and >= 64 channels; fused CUTLASS convs are the
-library (vendored, `torch.ops.fastbb.*`). Weights go to fp16 on the CPU before the move. Kernels prebuilt (fatbin sm_80-120 + PTX,
-fused-conv .so sm_80/86/89/120 + PTX); rebuild: `source env.sh; python -m fastbb.kernels` / delete prebuilt/fused_* and import.
-DINOv3: facebook/ HF repos gated (licence + token) -> blocked, not downloaded.
+CNN: hacc only when B*H*W of the network input >= 8*224^2 and >= 64 channels; fused CUTLASS convs
+use `torch.ops.fastbb.*`. Weights go to fp16 on the CPU before the move. Rebuild the shipped fatbin with
+`python -m fastbb.kernels`; CUTLASS libraries build on first use when `CUTLASS_DIR` and `CUDA_HOME` are set.
 
 ## Licence
 
