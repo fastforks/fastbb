@@ -1,16 +1,16 @@
 #!/bin/bash
 # Re-copy the fastbb files that the forks vendor (see VENDORED.md) from this checkout into the fork checkouts and show the diffs.
 # Copies are edited only here and re-synced. Each copied .py file gets a header line naming the source path + commit.
-# Usage: tools/sync_vendored.sh [raft|crestereo|sam3|da3|all]     (fork checkouts, each on its cuda-kernels branch; nothing is committed)
-#   RAFT_DIR / CRESTEREO_DIR / SAM3_DIR / DA3_DIR override the default locations (../raft, ../crestereo, ../sam3, ../Depth-Anything-3)
+# Usage: tools/sync_vendored.sh [raft|crestereo|sam3|da3|moge|all]     (fork checkouts, each on its cuda-kernels branch; nothing is committed)
+#   RAFT_DIR / CRESTEREO_DIR / SAM3_DIR / DA3_DIR / MOGE_DIR override the default locations (../raft, ../crestereo, ../sam3, ../Depth-Anything-3, ../MoGe)
 set -euo pipefail
 FB="$(cd "$(dirname "$0")/.." && pwd)"
-RAFT_DIR="${RAFT_DIR:-$FB/../raft}"; CRESTEREO_DIR="${CRESTEREO_DIR:-$FB/../crestereo}"; SAM3_DIR="${SAM3_DIR:-$FB/../sam3}"; DA3_DIR="${DA3_DIR:-$FB/../Depth-Anything-3}"
+RAFT_DIR="${RAFT_DIR:-$FB/../raft}"; CRESTEREO_DIR="${CRESTEREO_DIR:-$FB/../crestereo}"; SAM3_DIR="${SAM3_DIR:-$FB/../sam3}"; DA3_DIR="${DA3_DIR:-$FB/../Depth-Anything-3}"; MOGE_DIR="${MOGE_DIR:-$FB/../MoGe}"
 # Encoder-only sources are selected by trim_encoder_vendor.py; source hashes name the rebuilt binaries.
 # fork-name | files (paths relative to fastbb/fastbb/ = path relative to $DEST)
 RAFT_FILES="normconv.py csrc/norm_conv.cu"
 CRESTEREO_FILES="instnorm.py kernels.py fastbb_kernels.cu"
-SAM3_FILES="attention.py kernels.py fastbb_kernels.cu cudnn_conv.py"   # trimmed to the head_dim-64 flash kernels (SAM 3 and DA3)
+SAM3_FILES="attention.py kernels.py fastbb_kernels.cu cudnn_conv.py"   # trimmed to the head_dim-64 flash kernels (SAM 3, DA3 and MoGe)
 
 sync_one() {
   local name=$1 dir=$2 files=$3 DEST=${4:-fastbb_vendored}   # DEST: directory inside the fork
@@ -43,8 +43,10 @@ case "${1:-all}" in
   crestereo) sync_one crestereo "$CRESTEREO_DIR" "$CRESTEREO_FILES";;
   sam3) sync_one sam3 "$SAM3_DIR" "$SAM3_FILES" sam3/fastbb_vendored;;
   da3) sync_one da3 "$DA3_DIR" "$SAM3_FILES" src/depth_anything_3/fast/fastbb_vendored;;
+  moge) sync_one moge "$MOGE_DIR" "$SAM3_FILES" moge/fast/fastbb_vendored;;
   all) sync_one raft "$RAFT_DIR" "$RAFT_FILES"; sync_one crestereo "$CRESTEREO_DIR" "$CRESTEREO_FILES"
        sync_one sam3 "$SAM3_DIR" "$SAM3_FILES" sam3/fastbb_vendored
-       sync_one da3 "$DA3_DIR" "$SAM3_FILES" src/depth_anything_3/fast/fastbb_vendored;;
-  *) echo "usage: $0 [raft|crestereo|sam3|da3|all]" >&2; exit 2;;
+       sync_one da3 "$DA3_DIR" "$SAM3_FILES" src/depth_anything_3/fast/fastbb_vendored
+       sync_one moge "$MOGE_DIR" "$SAM3_FILES" moge/fast/fastbb_vendored;;
+  *) echo "usage: $0 [raft|crestereo|sam3|da3|moge|all]" >&2; exit 2;;
 esac

@@ -4,7 +4,7 @@ This file lists every fork that carries a copy of fastbb code: update the row wh
 
 The forks carry the operators they use on `cuda-kernels`, imported as `fastbb_vendored`. Their `portable` branches do not use fastbb.
 
-Edit the sources here, then run `tools/sync_vendored.sh [raft|crestereo|sam3|da3|all]`. `RAFT_DIR`, `CRESTEREO_DIR`, `SAM3_DIR` and `DA3_DIR` override the sibling checkout locations. The destination must be on `cuda-kernels` with a clean vendor directory. The script shows the resulting diff and does not commit it.
+Edit the sources here, then run `tools/sync_vendored.sh [raft|crestereo|sam3|da3|moge|all]`. `RAFT_DIR`, `CRESTEREO_DIR`, `SAM3_DIR` and `DA3_DIR` and `MOGE_DIR` override the sibling checkout locations. The destination must be on `cuda-kernels` with a clean vendor directory. The script shows the resulting diff and does not commit it.
 
 | Fork (repo) | Copy in the fork | Sources under `fastbb/` | Use |
 |---|---|---|---|
@@ -12,5 +12,6 @@ Edit the sources here, then run `tools/sync_vendored.sh [raft|crestereo|sam3|da3
 | CREStereo-Pytorch (fastforks/crestereo) | `fastbb_vendored/` | `instnorm.py`, `kernels.py`, `fastbb_kernels.cu` | Default instance normalization |
 | SAM 3 (fastforks/sam3) | `sam3/fastbb_vendored/` | `attention.py`, `kernels.py`, `fastbb_kernels.cu`, `cudnn_conv.py` | ViT flash attention (head_dim 64, fp16 accumulation), fp16-accumulate cuDNN convolutions |
 | Depth Anything 3 (fastforks/Depth-Anything-3) | `src/depth_anything_3/fast/fastbb_vendored/` | `attention.py`, `kernels.py`, `fastbb_kernels.cu`, `cudnn_conv.py` (same trimmed set as SAM 3, same fatbin) | ViT flash attention (head_dim 64, fp16 accumulation), fp16-accumulate cuDNN convolutions of the DPT head |
+| MoGe (fastforks/MoGe) | `moge/fast/fastbb_vendored/` | `attention.py`, `kernels.py`, `fastbb_kernels.cu`, `cudnn_conv.py` (same trimmed set as SAM 3 and DA3, same fatbin) | ViT flash attention (head_dim 64, fp16 accumulation), fp16-accumulate cuDNN convolutions of the neck and heads |
 
-Python headers and the generated `__init__.py` record each source file's last-changing commit. `trim_encoder_vendor.py` keeps only convolution/BatchNorm operators in the RAFT copy, selects only instance-normalization kernels and their loader entries for CREStereo, and only the head_dim-64 flash-attention kernels for SAM 3 and DA3 (fatbin about 1.1 MiB). Syncing CREStereo or SAM 3 requires nvcc to rebuild that subset: its fatbin is about 470 KiB, rather than the full library's 11 MiB. Source hashes determine binary filenames. Users can load the shipped fatbin without compiling it; the optional convolution extension still builds on first use.
+Python headers and the generated `__init__.py` record each source file's last-changing commit. `trim_encoder_vendor.py` keeps only convolution/BatchNorm operators in the RAFT copy, selects only instance-normalization kernels and their loader entries for CREStereo, and only the head_dim-64 flash-attention kernels for SAM 3, DA3 and MoGe (fatbin about 1.1 MiB). Syncing CREStereo or SAM 3 requires nvcc to rebuild that subset: its fatbin is about 470 KiB, rather than the full library's 11 MiB. Source hashes determine binary filenames. Users can load the shipped fatbin without compiling it; the optional convolution extension still builds on first use.
